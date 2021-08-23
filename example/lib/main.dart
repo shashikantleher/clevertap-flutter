@@ -1,10 +1,12 @@
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter_styled_toast/flutter_styled_toast.dart';
+
 import 'package:clevertap_plugin/clevertap_plugin.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_styled_toast/flutter_styled_toast.dart';
 
 void main() => runApp(MyApp());
 
@@ -15,6 +17,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late CleverTapPlugin _clevertapPlugin;
+  final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   var inboxInitialized = false;
   var optOut = false;
   var offLine = false;
@@ -24,9 +27,11 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     initPlatformState();
+    initFlutterLocalNotification();
     activateCleverTapFlutterPluginHandlers();
     CleverTapPlugin.setDebugLevel(3);
-    CleverTapPlugin.createNotificationChannel("fluttertest", "Flutter Test", "Flutter Test", 3, true);
+    CleverTapPlugin.createNotificationChannel(
+        "fluttertest", "Flutter Test", "Flutter Test", 3, true);
     CleverTapPlugin.initializeInbox();
     CleverTapPlugin.registerForPush(); //only for iOS
     //var initialUrl = CleverTapPlugin.getInitialUrl();
@@ -35,6 +40,21 @@ class _MyAppState extends State<MyApp> {
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
     if (!mounted) return;
+  }
+
+  void initFlutterLocalNotification() {
+    // initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('ic_launcher');
+    final IOSInitializationSettings initializationSettingsIOS =
+        IOSInitializationSettings(
+            onDidReceiveLocalNotification: onDidReceiveLocalNotification);
+    final InitializationSettings initializationSettings =
+        InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsIOS);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onSelectNotification: onSelectNotification);
   }
 
   void activateCleverTapFlutterPluginHandlers() {
@@ -186,6 +206,20 @@ class _MyAppState extends State<MyApp> {
             body: ListView(
               children: <Widget>[
                 Card(
+                  color: Colors.red,
+                  child: Padding(
+                    padding: const EdgeInsets.all(0.0),
+                    child: ListTile(
+                      dense: true,
+                      onTap: showLocalNotification,
+                      trailing: Icon(Icons.error),
+                      title: Text("Show Local notification"),
+                      subtitle: Text(
+                          "On click of this Notification should be handled by Flutter Local Notifiations"),
+                    ),
+                  ),
+                ),
+                Card(
                   color: Colors.orange,
                   child: Padding(
                     padding: const EdgeInsets.all(0.0),
@@ -241,7 +275,6 @@ class _MyAppState extends State<MyApp> {
                     ),
                   ),
                 ),
-
                 Card(
                   color: Colors.grey.shade300,
                   child: Padding(
@@ -472,7 +505,7 @@ class _MyAppState extends State<MyApp> {
                     child: ListTile(
                       title: Text("Push Inbox Message Clicked"),
                       subtitle:
-                      Text("Pushes/Records inbox message clicked event"),
+                          Text("Pushes/Records inbox message clicked event"),
                       onTap: pushInboxNotificationClickedEventForId,
                     ),
                   ),
@@ -484,7 +517,7 @@ class _MyAppState extends State<MyApp> {
                     child: ListTile(
                       title: Text("Push Inbox Message Viewed"),
                       subtitle:
-                      Text("Pushes/Records inbox message viewed event"),
+                          Text("Pushes/Records inbox message viewed event"),
                       onTap: pushInboxNotificationViewedEventForId,
                     ),
                   ),
@@ -643,7 +676,6 @@ class _MyAppState extends State<MyApp> {
                     ),
                   ),
                 ),
-
                 Card(
                   color: Colors.grey.shade300,
                   child: Padding(
@@ -692,7 +724,7 @@ class _MyAppState extends State<MyApp> {
                     child: ListTile(
                       title: Text("Set Opt Out"),
                       subtitle:
-                      Text("Used to opt out of sending data to CleverTap"),
+                          Text("Used to opt out of sending data to CleverTap"),
                       onTap: setOptOut,
                     ),
                   ),
@@ -753,6 +785,59 @@ class _MyAppState extends State<MyApp> {
                 ),
               ],
             )),
+      ),
+    );
+  }
+
+  void showLocalNotification() {
+    flutterLocalNotificationsPlugin.show(
+      0,
+      'Flutter Local Notification',
+      'body',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+            'fluttertest', 'Flutter Test', 'Testing channel'),
+        iOS: IOSNotificationDetails(presentBadge: true),
+      ),
+    );
+  }
+
+  Future onSelectNotification(String? payload) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: Text('Notification clicked'),
+        content: Text('Payload $payload'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text('Ok'),
+            onPressed: () async {
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+          )
+        ],
+      ),
+    );
+  }
+
+  Future onDidReceiveLocalNotification(
+      int id, String? title, String? body, String? payload) async {
+    // display a dialog with the notification details, tap ok to go to another page
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: Text(title ?? 'No title'),
+        content: Text(body ?? 'No body'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text('Ok'),
+            onPressed: () async {
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+          )
+        ],
       ),
     );
   }
